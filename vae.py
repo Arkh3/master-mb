@@ -65,7 +65,7 @@ def sample_latent_variables_from_posterior(encoder_output):
     # -------------------------
     # Reparametrization trick to generate one sample from q(z|x) per each batch datapoint
     mean_d = mean.shape
-    z_i = mean + np.exp(log_std) * npr.randn(mean_d) # Equation 15
+    z_i = mean + np.exp(log_std) * npr.randn(*mean.shape) # Equation 15
 
     # -------------------------
     # The output of this function is a matrix of size the batch x the number of latent dimensions
@@ -82,7 +82,9 @@ def bernoulli_log_prob(targets, logits):
     # sum the probabilities across the dimensions of each image in the batch. The output of this function 
     # should be a vector of size the batch size
 
-    return 0.0
+    sig_logits = sigmoid(logits)
+
+    return np.sum(np.log(targets*sig_logits + (1 - targets) * (1 - sig_logits)), axis=1)
 
 # This evaluates the KL between q and the prior
 
@@ -95,7 +97,9 @@ def compute_KL(q_means_and_log_stds):
     # Use the fact that the KL divervence is the sum of KL divergence of the marginals if q and p factorize
     # The output of this function should be a vector of size the batch size
 
-    return 0.0
+    variance = np.exp(log_std*2)
+
+    return .5 * np.sum( (variance + mean**2 - 1 - 2*log_std), axis=1)
 
 # This evaluates the lower bound
 
@@ -103,24 +107,31 @@ def vae_lower_bound(gen_params, rec_params, data):
     # Compute a noisy estiamte of the lower bound by using a single Monte Carlo sample:
     
     # -------------------------
-    # Compute the encoder output using neural_net_predict given the data and rec_params
-    encoder_output = neural_net_predict(gen_params, data)
-
-    # Sample the latent variables associated to the batch in data
+    # 1 - compute the encoder output using neural_net_predict given the data and rec_params
+    encoder_output = neural_net_predict(rec_params, data)
+    
+    # 2 - sample the latent variables associated to the batch in data 
     #     (use sample_latent_variables_from_posterior and the encoder output)
     sampled_latent_variables = sample_latent_variables_from_posterior(encoder_output)
+    
 
-    # Use the sampled latent variables to reconstruct the image and to compute the log_prob of the actual data
+    # 3 - use the sampled latent variables to reconstruct the image and to compute the log_prob of the actual data
     #     (use neural_net_predict for that)
-    decoder_output = neural_net_predict(rec_params, sampled_latent_variables)
+    decoder_output = neural_net_predict(gen_params, sampled_latent_variables)
+     
 
     log_prob = bernoulli_log_prob(data, decoder_output)
+    import pdb; pdb.set_trace() 
+     
 
-    # Compute the KL divergence between q(z|x) and the prior (use compute_KL for that)
+    # 4 - compute the KL divergence between q(z|x) and the prior (use compute_KL for that)
     divergence = compute_KL(encoder_output)
+    import pdb; pdb.set_trace() 
 
-    # Return an average estimate (per batch point) of the lower bound by substracting the KL to the data dependent term
-    lower_bound_estimate = np.mean(log_prob - divergence)
+    # 5 - return an average estimate (per batch point) of the lower bound by substracting the KL to the data dependent term
+    #!!!!!!!!!!!!!!!!!!!! el 60000 es por el github del otro !!!!!!
+    lower_bound_estimate = 60000*np.mean(log_prob - divergence)
+    import pdb; pdb.set_trace() 
     # -------------------------
 
     return lower_bound_estimate
@@ -158,7 +169,7 @@ if __name__ == '__main__':
 
     init_rec_params = init_net_params(rec_layer_sizes)
 
-    combined_params_init = (init_gen_params, init_rec_params) 
+    combined_params_init = (init_gen_params, init_rec_params)
 
     num_batches = int(np.ceil(len(train_images) / batch_size))
 
@@ -211,6 +222,7 @@ if __name__ == '__main__':
         for n_batch in range(int(np.ceil(N / batch_size))):
 
             batch = np.arange(batch_size * n_batch, np.minimum(N, batch_size * (n_batch + 1)))
+            import pdb; pdb.set_trace() 
             grad = objective_grad(flattened_current_params)
 
             # -------------------------
@@ -219,18 +231,16 @@ if __name__ == '__main__':
             m[t] = beta1 * m[t - 1] + (1 - beta1) * grad
             v[t] = beta2 * v[t - 1] + (1 - beta2) * grad**2
 
-            hat_m = m[t] / (1 - beta1**t)
-            hat_v = v[t] / (1 - beta2**t)
+            m_est = m[t] / (1 - beta1**t)
+            v_est = v[t] / (1 - beta2**t)
     
-            elbo_est += objective(flattened_current_params)
+            flattened_current_params += alpha * m_est / (np.sqrt(v_est) + epsilon)
+            import pdb; pdb.set_trace() 
+            # -------------------------
 
-            flattened_current_params += alpha * hat_m / (np.sqrt(hat_v) + epsilon) # Sum to maximize the function
-            
             elbo_est += objective(flattened_current_params)
 
             t += 1
-
-            # -------------------------
 
         print("Epoch: %d ELBO: %e" % (epoch, elbo_est / np.ceil(N / batch_size)))
 
