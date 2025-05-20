@@ -97,7 +97,9 @@ def compute_KL(q_means_and_log_stds):
     # Use the fact that the KL divervence is the sum of KL divergence of the marginals if q and p factorize
     # The output of this function should be a vector of size the batch size
 
-    return 0.0
+    variance = np.exp(log_std*2)
+
+    return np.sum(.5 * (variance + mean**2 - 1 - log_std), axis=1)
 
 # This evaluates the lower bound
 
@@ -105,23 +107,23 @@ def vae_lower_bound(gen_params, rec_params, data):
     # Compute a noisy estiamte of the lower bound by using a single Monte Carlo sample:
     
     # -------------------------
-    # Compute the encoder output using neural_net_predict given the data and rec_params
-    encoder_output = neural_net_predict(gen_params, data)
-
-    # Sample the latent variables associated to the batch in data
+    # 1 - compute the encoder output using neural_net_predict given the data and rec_params
+    encoder_output = neural_net_predict(rec_params, data)
+    
+    # 2 - sample the latent variables associated to the batch in data 
     #     (use sample_latent_variables_from_posterior and the encoder output)
     sampled_latent_variables = sample_latent_variables_from_posterior(encoder_output)
 
-    # Use the sampled latent variables to reconstruct the image and to compute the log_prob of the actual data
+    # 3 - use the sampled latent variables to reconstruct the image and to compute the log_prob of the actual data
     #     (use neural_net_predict for that)
     decoder_output = neural_net_predict(rec_params, sampled_latent_variables)
 
     log_prob = bernoulli_log_prob(data, decoder_output)
 
-    # Compute the KL divergence between q(z|x) and the prior (use compute_KL for that)
+    # 4 - compute the KL divergence between q(z|x) and the prior (use compute_KL for that)
     divergence = compute_KL(encoder_output)
 
-    # Return an average estimate (per batch point) of the lower bound by substracting the KL to the data dependent term
+    # 5 - return an average estimate (per batch point) of the lower bound by substracting the KL to the data dependent term
     lower_bound_estimate = np.mean(log_prob - divergence)
     # -------------------------
 
