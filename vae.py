@@ -81,7 +81,7 @@ def bernoulli_log_prob(targets, logits):
     # TODO compute the log probability of the targets given the generator output specified in logits
     # sum the probabilities across the dimensions of each image in the batch. The output of this function 
     # should be a vector of size the batch size
-    
+
     sig_logits = sigmoid(logits)
 
     return np.sum(np.log(targets*sig_logits + (1 - targets) * (1 - sig_logits)), axis=1)
@@ -113,25 +113,18 @@ def vae_lower_bound(gen_params, rec_params, data):
     # 2 - sample the latent variables associated to the batch in data 
     #     (use sample_latent_variables_from_posterior and the encoder output)
     sampled_latent_variables = sample_latent_variables_from_posterior(encoder_output)
-    
 
     # 3 - use the sampled latent variables to reconstruct the image and to compute the log_prob of the actual data
     #     (use neural_net_predict for that)
     decoder_output = neural_net_predict(gen_params, sampled_latent_variables)
-     
 
     log_prob = bernoulli_log_prob(data, decoder_output)
-    import pdb; pdb.set_trace() 
-     
 
     # 4 - compute the KL divergence between q(z|x) and the prior (use compute_KL for that)
     divergence = compute_KL(encoder_output)
-    import pdb; pdb.set_trace() 
 
     # 5 - return an average estimate (per batch point) of the lower bound by substracting the KL to the data dependent term
-    #!!!!!!!!!!!!!!!!!!!! el 60000 es por el github del otro !!!!!!
-    lower_bound_estimate = 60000*np.mean(log_prob - divergence)
-    import pdb; pdb.set_trace() 
+    lower_bound_estimate = np.mean(log_prob - divergence)
     # -------------------------
 
     return lower_bound_estimate
@@ -222,20 +215,21 @@ if __name__ == '__main__':
         for n_batch in range(int(np.ceil(N / batch_size))):
 
             batch = np.arange(batch_size * n_batch, np.minimum(N, batch_size * (n_batch + 1)))
-            import pdb; pdb.set_trace() 
             grad = objective_grad(flattened_current_params)
 
             # -------------------------
             # Use the estimated noisy gradient in grad to update the paramters using the ADAM updates
+            #import pdb; pdb.set_trace() 
 
-            m[t] = beta1 * m[t - 1] + (1 - beta1) * grad
-            v[t] = beta2 * v[t - 1] + (1 - beta2) * grad**2
+            m = beta1 * m + (1 - beta1) * grad
+            
+            v = beta2 * v + (1 - beta2) * grad**2
 
-            m_est = m[t] / (1 - beta1**t)
-            v_est = v[t] / (1 - beta2**t)
+            m_est = m / (1 - beta1**t)
+            v_est = v / (1 - beta2**t)
     
             flattened_current_params += alpha * m_est / (np.sqrt(v_est) + epsilon)
-            import pdb; pdb.set_trace() 
+            
             # -------------------------
 
             elbo_est += objective(flattened_current_params)
