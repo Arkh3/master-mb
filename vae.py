@@ -81,7 +81,7 @@ def bernoulli_log_prob(targets, logits):
     # TODO compute the log probability of the targets given the generator output specified in logits
     # sum the probabilities across the dimensions of each image in the batch. The output of this function 
     # should be a vector of size the batch size
-
+    
     sig_logits = sigmoid(logits)
 
     return np.sum(np.log(targets*sig_logits + (1 - targets) * (1 - sig_logits)), axis=1)
